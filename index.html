@@ -117,7 +117,8 @@
     .clear-button,
     .calculate-button,
     .slot-card,
-    .toggle-button {
+    .toggle-button,
+    .modal-close-button {
       border: 1px solid var(--line);
       background: #fff;
       color: var(--text);
@@ -138,7 +139,8 @@
     .target-button:hover,
     .clear-button:hover,
     .toggle-button:hover,
-    .slot-card:hover {
+    .slot-card:hover,
+    .modal-close-button:hover {
       border-color: var(--accent);
       transform: translateY(-1px);
     }
@@ -192,8 +194,23 @@
       color: var(--card-black);
     }
 
+    .deck-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(15, 23, 42, 0.48);
+    }
+
     .deck-panel {
       position: relative;
+      width: min(980px, 100%);
+      max-height: min(86vh, 780px);
+      display: flex;
+      flex-direction: column;
     }
 
     .deck-toolbar {
@@ -205,6 +222,21 @@
       margin-bottom: 14px;
     }
 
+    .deck-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .modal-close-button {
+      min-height: 42px;
+      padding: 9px 12px;
+      font-weight: 700;
+      color: var(--text);
+      background: #f6f8fa;
+    }
+
     .current-target {
       color: var(--accent-dark);
       font-weight: 750;
@@ -214,6 +246,8 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
       gap: 8px;
+      overflow: auto;
+      padding: 2px 2px 4px;
     }
 
     .card-button {
@@ -578,16 +612,21 @@
         </section>
       </div>
 
-      <section class="panel deck-panel" aria-labelledby="deckTitle">
-        <div class="deck-toolbar">
-          <div>
-            <h2 id="deckTitle">牌库</h2>
-            <div class="hint">点击卡牌加入当前目标：<span id="currentTargetText" class="current-target">我的手牌</span></div>
+      <div id="deckModal" class="deck-modal hidden" role="dialog" aria-modal="true" aria-labelledby="deckTitle">
+        <section class="panel deck-panel">
+          <div class="deck-toolbar">
+            <div>
+              <h2 id="deckTitle">牌库</h2>
+              <div class="hint">点击卡牌加入当前目标：<span id="currentTargetText" class="current-target">我的手牌</span></div>
+            </div>
+            <div class="deck-actions">
+              <button id="clearButton" class="clear-button" type="button">清空选择</button>
+              <button id="closeDeckButton" class="modal-close-button" type="button">关闭</button>
+            </div>
           </div>
-          <button id="clearButton" class="clear-button" type="button">清空选择</button>
-        </div>
-        <div id="deckGrid" class="deck-grid" aria-label="52张扑克牌"></div>
-      </section>
+          <div id="deckGrid" class="deck-grid" aria-label="52张扑克牌"></div>
+        </section>
+      </div>
 
       <section class="panel" aria-labelledby="advancedTitle">
         <div class="panel-title">
@@ -734,7 +773,8 @@
       board: [],
       opponents: Array.from({ length: 4 }, () => []),
       runId: 0,
-      isComputing: false
+      isComputing: false,
+      isDeckModalOpen: false
     };
 
     let dom = {};
@@ -778,12 +818,19 @@
       dom.message.classList.toggle("info", type === "info");
     }
 
-    function setCurrentTarget(target) {
+    function closeDeckModal() {
+      state.isDeckModalOpen = false;
+      render();
+    }
+
+    function setCurrentTarget(target, shouldOpenDeck = true) {
+      if (state.isComputing) return;
       if (target.startsWith("opponent-") && !state.advancedEnabled) {
         state.currentTarget = "hero";
       } else {
         state.currentTarget = target;
       }
+      if (shouldOpenDeck) state.isDeckModalOpen = true;
       render();
     }
 
@@ -812,6 +859,7 @@
 
       targetCards.push(cardId);
       setMessage(`已选择 ${formatCard(cardId)}。`, "info");
+      if (targetCards.length >= limit) state.isDeckModalOpen = false;
       render();
     }
 
@@ -829,6 +877,7 @@
       state.board = [];
       state.opponents = Array.from({ length: state.playerCount - 1 }, () => []);
       state.currentTarget = "hero";
+      state.isDeckModalOpen = false;
       setMessage("已清空所有选择。", "info");
       if (dom.calculateButton) {
         dom.calculateButton.disabled = false;
@@ -925,6 +974,10 @@
       });
     }
 
+    function renderDeckModal() {
+      dom.deckModal.classList.toggle("hidden", !state.isDeckModalOpen);
+    }
+
     function renderTargetButtons() {
       document.querySelectorAll("[data-target]").forEach((button) => {
         const isActive = button.dataset.target === state.currentTarget;
@@ -976,6 +1029,7 @@
       renderOpponents();
       renderTargetButtons();
       renderDeck();
+      renderDeckModal();
     }
 
     function getStage(boardCount) {
@@ -1249,6 +1303,7 @@
       let completed = 0;
 
       state.isComputing = true;
+      state.isDeckModalOpen = false;
       dom.calculateButton.disabled = true;
       dom.calculateButton.textContent = "计算中...";
       dom.resultPanel.classList.remove("visible");
@@ -1306,6 +1361,13 @@
       });
 
       dom.clearButton.addEventListener("click", clearSelections);
+      dom.closeDeckButton.addEventListener("click", closeDeckModal);
+      dom.deckModal.addEventListener("click", (event) => {
+        if (event.target === dom.deckModal) closeDeckModal();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && state.isDeckModalOpen) closeDeckModal();
+      });
       dom.calculateButton.addEventListener("click", runSimulation);
     }
 
@@ -1314,11 +1376,13 @@
         playerButtons: document.getElementById("playerButtons"),
         heroSlots: document.getElementById("heroSlots"),
         boardSlots: document.getElementById("boardSlots"),
+        deckModal: document.getElementById("deckModal"),
         deckGrid: document.getElementById("deckGrid"),
         currentTargetText: document.getElementById("currentTargetText"),
         advancedToggle: document.getElementById("advancedToggle"),
         opponentsArea: document.getElementById("opponentsArea"),
         clearButton: document.getElementById("clearButton"),
+        closeDeckButton: document.getElementById("closeDeckButton"),
         calculateButton: document.getElementById("calculateButton"),
         message: document.getElementById("message"),
         resultPanel: document.getElementById("resultPanel"),
