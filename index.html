@@ -1,0 +1,1347 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>德州扑克胜率计算器</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --text: #17212b;
+      --muted: #667085;
+      --line: #d9e0e8;
+      --accent: #087f8c;
+      --accent-dark: #05626d;
+      --success: #168a5b;
+      --warning: #b7791f;
+      --danger: #c92a2a;
+      --card-red: #d52635;
+      --card-black: #151a21;
+      --shadow: 0 14px 35px rgba(15, 23, 42, 0.08);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      color: var(--text);
+      background:
+        linear-gradient(180deg, #eaf0f3 0, #f4f6f8 280px),
+        var(--bg);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 28px 0 42px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 8px;
+      padding: 18px 0 20px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 48px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.6;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .panel,
+    .result-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 19px;
+      line-height: 1.3;
+      letter-spacing: 0;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+      gap: 8px;
+    }
+
+    .choice-button,
+    .target-button,
+    .clear-button,
+    .calculate-button,
+    .slot-card,
+    .toggle-button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+    }
+
+    .choice-button,
+    .target-button,
+    .toggle-button {
+      min-height: 42px;
+      padding: 9px 12px;
+      font-weight: 650;
+    }
+
+    .choice-button:hover,
+    .target-button:hover,
+    .clear-button:hover,
+    .toggle-button:hover,
+    .slot-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .choice-button.active,
+    .target-button.active,
+    .toggle-button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .selected-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 12px;
+      min-height: 44px;
+      align-items: center;
+    }
+
+    .slot-card {
+      min-width: 96px;
+      min-height: 44px;
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 750;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #fbfcfd;
+    }
+
+    .slot-card.empty {
+      color: var(--muted);
+      font-weight: 550;
+      border-style: dashed;
+    }
+
+    .slot-card .remove-mark {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .card-red {
+      color: var(--card-red);
+    }
+
+    .card-black {
+      color: var(--card-black);
+    }
+
+    .deck-panel {
+      position: relative;
+    }
+
+    .deck-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .current-target {
+      color: var(--accent-dark);
+      font-weight: 750;
+    }
+
+    .deck-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+      gap: 8px;
+    }
+
+    .card-button {
+      min-height: 80px;
+      border: 1px solid #cfd7df;
+      border-radius: 7px;
+      background: linear-gradient(180deg, #fff 0, #f9fbfc 100%);
+      cursor: pointer;
+      display: grid;
+      align-content: space-between;
+      justify-items: start;
+      padding: 8px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
+      transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+    }
+
+    .card-button:hover:not(:disabled) {
+      border-color: var(--accent);
+      box-shadow: 0 8px 18px rgba(8, 127, 140, 0.14);
+      transform: translateY(-2px);
+    }
+
+    .card-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.9;
+    }
+
+    .card-button.selected {
+      border-color: var(--accent);
+      background: #e7f6f5;
+      box-shadow: inset 0 0 0 2px rgba(8, 127, 140, 0.22);
+    }
+
+    .card-rank {
+      font-size: 22px;
+      font-weight: 850;
+      line-height: 1;
+    }
+
+    .card-suit {
+      font-size: 13px;
+      font-weight: 750;
+      line-height: 1.2;
+    }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .target-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .opponents {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .opponent-row {
+      display: grid;
+      grid-template-columns: minmax(82px, 0.35fr) minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfcfd;
+    }
+
+    .opponent-name {
+      font-weight: 750;
+    }
+
+    .opponent-slots {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .simulation-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+
+    .simulation-options input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .simulation-options label {
+      min-height: 54px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      cursor: pointer;
+      background: #fff;
+      display: grid;
+      gap: 2px;
+    }
+
+    .simulation-options input:checked + label {
+      border-color: var(--accent);
+      background: #e7f6f5;
+      box-shadow: inset 0 0 0 1px rgba(8, 127, 140, 0.2);
+    }
+
+    .simulation-title {
+      font-weight: 800;
+    }
+
+    .simulation-count {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .calculate-button {
+      min-height: 52px;
+      padding: 12px 18px;
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 850;
+    }
+
+    .calculate-button:hover:not(:disabled) {
+      background: var(--accent-dark);
+      border-color: var(--accent-dark);
+    }
+
+    .calculate-button:disabled {
+      cursor: wait;
+      opacity: 0.75;
+    }
+
+    .clear-button {
+      min-height: 42px;
+      padding: 9px 12px;
+      font-weight: 700;
+      color: var(--danger);
+      border-color: #f0c5c5;
+      background: #fff8f8;
+    }
+
+    .message {
+      min-height: 22px;
+      color: var(--danger);
+      font-weight: 650;
+      line-height: 1.5;
+    }
+
+    .message.info {
+      color: var(--accent-dark);
+    }
+
+    .result-panel {
+      display: none;
+      border-color: #c8dce0;
+    }
+
+    .result-panel.visible {
+      display: block;
+    }
+
+    .result-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .win-number {
+      font-size: clamp(46px, 10vw, 78px);
+      font-weight: 900;
+      line-height: 0.98;
+      color: var(--success);
+      letter-spacing: 0;
+    }
+
+    .result-meta {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .stage-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: max-content;
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 750;
+    }
+
+    .bars {
+      display: grid;
+      gap: 12px;
+      margin: 14px 0;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 68px minmax(0, 1fr) 72px;
+      gap: 10px;
+      align-items: center;
+      font-weight: 750;
+    }
+
+    .bar-track {
+      height: 14px;
+      border-radius: 999px;
+      background: #e9edf2;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      transition: width 260ms ease;
+    }
+
+    .bar-fill.win {
+      background: var(--success);
+    }
+
+    .bar-fill.tie {
+      background: var(--warning);
+    }
+
+    .bar-fill.lose {
+      background: var(--danger);
+    }
+
+    .explain {
+      margin: 14px 0 0;
+      padding: 12px;
+      border-radius: var(--radius);
+      background: #f1f8f7;
+      color: #174a4f;
+      line-height: 1.65;
+      font-weight: 650;
+    }
+
+    @media (min-width: 760px) {
+      .two-column {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .actions {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+      }
+
+      .result-head {
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .page {
+        width: min(100% - 18px, 1180px);
+        padding-top: 18px;
+      }
+
+      .panel,
+      .result-panel {
+        padding: 14px;
+      }
+
+      .panel-title {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .deck-grid {
+        grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+        gap: 7px;
+      }
+
+      .card-button {
+        min-height: 72px;
+        padding: 7px;
+      }
+
+      .card-rank {
+        font-size: 20px;
+      }
+
+      .card-suit {
+        font-size: 12px;
+      }
+
+      .opponent-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .bar-row {
+        grid-template-columns: 54px minmax(0, 1fr) 58px;
+        gap: 8px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <h1>德州扑克胜率计算器</h1>
+      <p>选择你的手牌和公共牌，计算当前局面的胜率</p>
+    </header>
+
+    <div class="grid">
+      <section class="panel" aria-labelledby="playersTitle">
+        <div class="panel-title">
+          <h2 id="playersTitle">1. 选择玩家人数</h2>
+          <span class="hint">默认 5 人局，包含你自己。</span>
+        </div>
+        <div id="playerButtons" class="button-grid" role="group" aria-label="玩家人数"></div>
+      </section>
+
+      <div class="two-column">
+        <section class="panel" aria-labelledby="heroTitle">
+          <div class="panel-title">
+            <h2 id="heroTitle">2. 选择我的手牌</h2>
+            <button class="target-button active" data-target="hero" type="button">填入我的手牌</button>
+          </div>
+          <div id="heroSlots" class="selected-summary" aria-live="polite"></div>
+          <div class="hint">需要选择 2 张牌，例如：红桃A、黑桃K。</div>
+        </section>
+
+        <section class="panel" aria-labelledby="boardTitle">
+          <div class="panel-title">
+            <h2 id="boardTitle">3. 选择公共牌</h2>
+            <button class="target-button" data-target="board" type="button">填入公共牌</button>
+          </div>
+          <div id="boardSlots" class="selected-summary" aria-live="polite"></div>
+          <div class="hint">可选 0、3、4 或 5 张；0 张表示翻牌前。</div>
+        </section>
+      </div>
+
+      <section class="panel deck-panel" aria-labelledby="deckTitle">
+        <div class="deck-toolbar">
+          <div>
+            <h2 id="deckTitle">牌库</h2>
+            <div class="hint">点击卡牌加入当前目标：<span id="currentTargetText" class="current-target">我的手牌</span></div>
+          </div>
+          <button id="clearButton" class="clear-button" type="button">清空选择</button>
+        </div>
+        <div id="deckGrid" class="deck-grid" aria-label="52张扑克牌"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="advancedTitle">
+        <div class="panel-title">
+          <div>
+            <h2 id="advancedTitle">4. 高级模式：填写对手手牌</h2>
+            <div class="hint">不填写的对手会按随机未知手牌处理。</div>
+          </div>
+          <button id="advancedToggle" class="toggle-button" type="button" aria-expanded="false">开启高级模式</button>
+        </div>
+        <div id="opponentsArea" class="opponents hidden"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="simulationTitle">
+        <div class="panel-title">
+          <h2 id="simulationTitle">5. 模拟次数</h2>
+          <span class="hint">次数越多越稳定，耗时也更长。</span>
+        </div>
+        <div class="simulation-options" role="radiogroup" aria-label="模拟次数">
+          <input id="simFast" name="simulationCount" type="radio" value="5000">
+          <label for="simFast">
+            <span class="simulation-title">快速</span>
+            <span class="simulation-count">5000 次</span>
+          </label>
+
+          <input id="simStandard" name="simulationCount" type="radio" value="20000" checked>
+          <label for="simStandard">
+            <span class="simulation-title">标准</span>
+            <span class="simulation-count">20000 次</span>
+          </label>
+
+          <input id="simAccurate" name="simulationCount" type="radio" value="100000">
+          <label for="simAccurate">
+            <span class="simulation-title">精准</span>
+            <span class="simulation-count">100000 次</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="actionTitle">
+        <div class="actions">
+          <div>
+            <h2 id="actionTitle">6. 开始计算</h2>
+            <div id="message" class="message" role="status" aria-live="polite"></div>
+          </div>
+          <button id="calculateButton" class="calculate-button" type="button">计算胜率</button>
+        </div>
+      </section>
+
+      <section id="resultPanel" class="result-panel" aria-labelledby="resultTitle">
+        <h2 id="resultTitle">7. 结果展示</h2>
+        <div class="result-head">
+          <div>
+            <div class="hint">我的胜率</div>
+            <div id="winNumber" class="win-number">0.00%</div>
+          </div>
+          <div class="result-meta">
+            <span id="stageText" class="stage-pill">翻牌前</span>
+            <span id="simulationText">模拟次数：0 次</span>
+            <span id="detailText">胜率 0.00%，平局 0.00%，失败 0.00%。</span>
+          </div>
+        </div>
+        <div class="bars">
+          <div class="bar-row">
+            <span>胜率</span>
+            <div class="bar-track"><div id="winBar" class="bar-fill win"></div></div>
+            <span id="winPercent">0.00%</span>
+          </div>
+          <div class="bar-row">
+            <span>平局</span>
+            <div class="bar-track"><div id="tieBar" class="bar-fill tie"></div></div>
+            <span id="tiePercent">0.00%</span>
+          </div>
+          <div class="bar-row">
+            <span>失败</span>
+            <div class="bar-track"><div id="loseBar" class="bar-fill lose"></div></div>
+            <span id="losePercent">0.00%</span>
+          </div>
+        </div>
+        <p id="explainText" class="explain">请选择手牌并点击计算。</p>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+
+    // 基础牌库：花色按中文显示，点数按德州扑克大小映射。
+    const SUITS = [
+      { code: "H", name: "红桃", symbol: "♥", color: "red" },
+      { code: "D", name: "方块", symbol: "♦", color: "red" },
+      { code: "C", name: "梅花", symbol: "♣", color: "black" },
+      { code: "S", name: "黑桃", symbol: "♠", color: "black" }
+    ];
+
+    const RANKS = [
+      { label: "A", value: 14 },
+      { label: "K", value: 13 },
+      { label: "Q", value: 12 },
+      { label: "J", value: 11 },
+      { label: "10", value: 10 },
+      { label: "9", value: 9 },
+      { label: "8", value: 8 },
+      { label: "7", value: 7 },
+      { label: "6", value: 6 },
+      { label: "5", value: 5 },
+      { label: "4", value: 4 },
+      { label: "3", value: 3 },
+      { label: "2", value: 2 }
+    ];
+
+    const DECK = SUITS.flatMap((suit) =>
+      RANKS.map((rank) => ({
+        id: `${suit.code}-${rank.label}`,
+        suit: suit.code,
+        suitName: suit.name,
+        suitSymbol: suit.symbol,
+        color: suit.color,
+        rank: rank.label,
+        value: rank.value,
+        text: `${suit.name}${rank.label}`
+      }))
+    );
+
+    const CARD_BY_ID = new Map(DECK.map((card) => [card.id, card]));
+
+    const HAND_TYPE_NAMES = {
+      10: "皇家同花顺",
+      9: "同花顺",
+      8: "四条",
+      7: "葫芦",
+      6: "同花",
+      5: "顺子",
+      4: "三条",
+      3: "两对",
+      2: "一对",
+      1: "高牌"
+    };
+
+    const state = {
+      playerCount: 5,
+      currentTarget: "hero",
+      advancedEnabled: false,
+      hero: [],
+      board: [],
+      opponents: Array.from({ length: 4 }, () => []),
+      runId: 0,
+      isComputing: false
+    };
+
+    let dom = {};
+
+    function cardClass(card) {
+      return card.color === "red" ? "card-red" : "card-black";
+    }
+
+    function formatCard(cardId) {
+      const card = CARD_BY_ID.get(cardId);
+      return card ? card.text : "";
+    }
+
+    function getTargetLabel(target) {
+      if (target === "hero") return "我的手牌";
+      if (target === "board") return "公共牌";
+      if (target.startsWith("opponent-")) {
+        const index = Number(target.split("-")[1]) + 1;
+        return `对手${index}手牌`;
+      }
+      return "我的手牌";
+    }
+
+    function getTargetCards(target) {
+      if (target === "hero") return state.hero;
+      if (target === "board") return state.board;
+      if (target.startsWith("opponent-")) {
+        const index = Number(target.split("-")[1]);
+        return state.opponents[index] || [];
+      }
+      return state.hero;
+    }
+
+    function getTargetLimit(target) {
+      return target === "board" ? 5 : 2;
+    }
+
+    function setMessage(text, type = "error") {
+      if (!dom.message) return;
+      dom.message.textContent = text;
+      dom.message.classList.toggle("info", type === "info");
+    }
+
+    function setCurrentTarget(target) {
+      if (target.startsWith("opponent-") && !state.advancedEnabled) {
+        state.currentTarget = "hero";
+      } else {
+        state.currentTarget = target;
+      }
+      render();
+    }
+
+    function getUsedCardIds() {
+      const used = new Set([...state.hero, ...state.board]);
+      if (state.advancedEnabled) {
+        state.opponents.forEach((cards) => cards.forEach((id) => used.add(id)));
+      }
+      return used;
+    }
+
+    function addCardToCurrentTarget(cardId) {
+      if (state.isComputing) return;
+      const used = getUsedCardIds();
+      if (used.has(cardId)) {
+        setMessage("这张牌已经被选过，不能重复选择。");
+        return;
+      }
+
+      const targetCards = getTargetCards(state.currentTarget);
+      const limit = getTargetLimit(state.currentTarget);
+      if (targetCards.length >= limit) {
+        setMessage(`${getTargetLabel(state.currentTarget)}最多只能选择 ${limit} 张牌。`);
+        return;
+      }
+
+      targetCards.push(cardId);
+      setMessage(`已选择 ${formatCard(cardId)}。`, "info");
+      render();
+    }
+
+    function removeCardFromGroup(group, index) {
+      if (state.isComputing) return;
+      const cards = getTargetCards(group);
+      cards.splice(index, 1);
+      render();
+    }
+
+    function clearSelections() {
+      state.runId += 1;
+      state.isComputing = false;
+      state.hero = [];
+      state.board = [];
+      state.opponents = Array.from({ length: state.playerCount - 1 }, () => []);
+      state.currentTarget = "hero";
+      setMessage("已清空所有选择。", "info");
+      if (dom.calculateButton) {
+        dom.calculateButton.disabled = false;
+        dom.calculateButton.textContent = "计算胜率";
+      }
+      if (dom.resultPanel) dom.resultPanel.classList.remove("visible");
+      render();
+    }
+
+    function syncOpponentsToPlayerCount() {
+      const next = [];
+      for (let i = 0; i < state.playerCount - 1; i += 1) {
+        next.push(state.opponents[i] ? [...state.opponents[i]] : []);
+      }
+      state.opponents = next;
+      if (state.currentTarget.startsWith("opponent-")) {
+        const index = Number(state.currentTarget.split("-")[1]);
+        if (index >= state.opponents.length) state.currentTarget = "hero";
+      }
+    }
+
+    function createSlotButton(group, cardId, index, placeholder) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "slot-card";
+      button.title = cardId ? "点击移除这张牌" : "空牌位";
+      if (!cardId) {
+        button.classList.add("empty");
+        button.textContent = placeholder;
+        button.disabled = true;
+        return button;
+      }
+
+      const card = CARD_BY_ID.get(cardId);
+      const text = document.createElement("span");
+      text.className = cardClass(card);
+      text.textContent = card.text;
+      const mark = document.createElement("span");
+      mark.className = "remove-mark";
+      mark.textContent = "×";
+      button.append(text, mark);
+      button.addEventListener("click", () => removeCardFromGroup(group, index));
+      return button;
+    }
+
+    function renderSlots(container, group, limit) {
+      const cards = getTargetCards(group);
+      container.innerHTML = "";
+      for (let i = 0; i < limit; i += 1) {
+        container.appendChild(createSlotButton(group, cards[i], i, `空位 ${i + 1}`));
+      }
+    }
+
+    function renderPlayerButtons() {
+      dom.playerButtons.innerHTML = "";
+      for (let count = 2; count <= 9; count += 1) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `choice-button${state.playerCount === count ? " active" : ""}`;
+        button.textContent = `${count}人`;
+        button.setAttribute("aria-pressed", state.playerCount === count ? "true" : "false");
+        button.addEventListener("click", () => {
+          if (state.isComputing) return;
+          state.playerCount = count;
+          syncOpponentsToPlayerCount();
+          setMessage(`已切换为 ${count} 人局。`, "info");
+          render();
+        });
+        dom.playerButtons.appendChild(button);
+      }
+    }
+
+    function renderDeck() {
+      const used = getUsedCardIds();
+      dom.deckGrid.innerHTML = "";
+      DECK.forEach((card) => {
+        const button = document.createElement("button");
+        const selected = used.has(card.id);
+        button.type = "button";
+        button.className = `card-button ${cardClass(card)}${selected ? " selected" : ""}`;
+        button.disabled = selected || state.isComputing;
+        button.setAttribute("aria-pressed", selected ? "true" : "false");
+        button.title = selected ? `${card.text} 已被选择` : `选择${card.text}`;
+
+        const rank = document.createElement("span");
+        rank.className = "card-rank";
+        rank.textContent = card.rank;
+        const suit = document.createElement("span");
+        suit.className = "card-suit";
+        suit.textContent = `${card.suitName}${card.suitSymbol}`;
+        button.append(rank, suit);
+        button.addEventListener("click", () => addCardToCurrentTarget(card.id));
+        dom.deckGrid.appendChild(button);
+      });
+    }
+
+    function renderTargetButtons() {
+      document.querySelectorAll("[data-target]").forEach((button) => {
+        const isActive = button.dataset.target === state.currentTarget;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+      });
+      dom.currentTargetText.textContent = getTargetLabel(state.currentTarget);
+    }
+
+    function renderOpponents() {
+      dom.advancedToggle.textContent = state.advancedEnabled ? "关闭高级模式" : "开启高级模式";
+      dom.advancedToggle.classList.toggle("active", state.advancedEnabled);
+      dom.advancedToggle.setAttribute("aria-expanded", state.advancedEnabled ? "true" : "false");
+      dom.opponentsArea.classList.toggle("hidden", !state.advancedEnabled);
+      dom.opponentsArea.innerHTML = "";
+
+      if (!state.advancedEnabled) return;
+
+      state.opponents.forEach((cards, index) => {
+        const row = document.createElement("div");
+        row.className = "opponent-row";
+
+        const name = document.createElement("div");
+        name.className = "opponent-name";
+        name.textContent = `对手${index + 1}`;
+
+        const slots = document.createElement("div");
+        slots.className = "opponent-slots";
+        slots.appendChild(createSlotButton(`opponent-${index}`, cards[0], 0, "未知 1"));
+        slots.appendChild(createSlotButton(`opponent-${index}`, cards[1], 1, "未知 2"));
+
+        const target = document.createElement("button");
+        target.type = "button";
+        target.className = `target-button${state.currentTarget === `opponent-${index}` ? " active" : ""}`;
+        target.dataset.target = `opponent-${index}`;
+        target.textContent = "填入";
+        target.addEventListener("click", () => setCurrentTarget(`opponent-${index}`));
+
+        row.append(name, slots, target);
+        dom.opponentsArea.appendChild(row);
+      });
+    }
+
+    function render() {
+      if (!dom.playerButtons) return;
+      renderPlayerButtons();
+      renderSlots(dom.heroSlots, "hero", 2);
+      renderSlots(dom.boardSlots, "board", 5);
+      renderOpponents();
+      renderTargetButtons();
+      renderDeck();
+    }
+
+    function getStage(boardCount) {
+      if (boardCount === 0) return "翻牌前";
+      if (boardCount === 3) return "翻牌后";
+      if (boardCount === 4) return "转牌后";
+      if (boardCount === 5) return "河牌后";
+      return "公共牌数量不合法";
+    }
+
+    function getSimulationCount() {
+      const selected = document.querySelector("input[name='simulationCount']:checked");
+      return selected ? Number(selected.value) : 20000;
+    }
+
+    function validateInput() {
+      if (state.hero.length !== 2) {
+        return "请先选择2张我的手牌。";
+      }
+      if (![0, 3, 4, 5].includes(state.board.length)) {
+        return "公共牌只能是0张、3张、4张或5张。";
+      }
+      if (state.advancedEnabled) {
+        for (let i = 0; i < state.opponents.length; i += 1) {
+          const cards = state.opponents[i];
+          if (cards.length === 1) {
+            return `对手${i + 1}如果填写手牌，必须选择2张。`;
+          }
+        }
+      }
+
+      const cards = [
+        ...state.hero,
+        ...state.board,
+        ...(state.advancedEnabled ? state.opponents.flat() : [])
+      ];
+      if (new Set(cards).size !== cards.length) {
+        return "同一张牌不能重复选择。";
+      }
+      return "";
+    }
+
+    function compareHands(a, b) {
+      const maxLength = Math.max(a.length, b.length);
+      for (let i = 0; i < maxLength; i += 1) {
+        const av = a[i] || 0;
+        const bv = b[i] || 0;
+        if (av > bv) return 1;
+        if (av < bv) return -1;
+      }
+      return 0;
+    }
+
+    function getStraightHigh(values) {
+      const unique = [...new Set(values)].sort((a, b) => b - a);
+      if (unique.includes(14)) unique.push(1);
+      for (let i = 0; i <= unique.length - 5; i += 1) {
+        let isStraight = true;
+        for (let step = 1; step < 5; step += 1) {
+          if (unique[i + step] !== unique[i] - step) {
+            isStraight = false;
+            break;
+          }
+        }
+        if (isStraight) return unique[i];
+      }
+      return 0;
+    }
+
+    function sortDesc(values) {
+      return [...values].sort((a, b) => b - a);
+    }
+
+    function evaluateFiveCards(cards) {
+      const values = sortDesc(cards.map((card) => card.value));
+      const suits = cards.map((card) => card.suit);
+      const isFlush = suits.every((suit) => suit === suits[0]);
+      const straightHigh = getStraightHigh(values);
+
+      const counts = new Map();
+      values.forEach((value) => counts.set(value, (counts.get(value) || 0) + 1));
+      const groups = [...counts.entries()]
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count || b.value - a.value);
+
+      if (isFlush && straightHigh) {
+        return straightHigh === 14 ? [10, 14] : [9, straightHigh];
+      }
+
+      const four = groups.find((group) => group.count === 4);
+      if (four) {
+        const kicker = groups.find((group) => group.count === 1).value;
+        return [8, four.value, kicker];
+      }
+
+      const threeGroups = groups.filter((group) => group.count === 3);
+      const pairGroups = groups.filter((group) => group.count === 2);
+      if (threeGroups.length && pairGroups.length) {
+        return [7, threeGroups[0].value, pairGroups[0].value];
+      }
+
+      if (isFlush) {
+        return [6, ...values];
+      }
+
+      if (straightHigh) {
+        return [5, straightHigh];
+      }
+
+      if (threeGroups.length) {
+        const kickers = groups
+          .filter((group) => group.count === 1)
+          .map((group) => group.value)
+          .sort((a, b) => b - a);
+        return [4, threeGroups[0].value, ...kickers];
+      }
+
+      if (pairGroups.length >= 2) {
+        const pairs = pairGroups.map((group) => group.value).sort((a, b) => b - a);
+        const kicker = groups.find((group) => group.count === 1).value;
+        return [3, pairs[0], pairs[1], kicker];
+      }
+
+      if (pairGroups.length === 1) {
+        const pair = pairGroups[0].value;
+        const kickers = groups
+          .filter((group) => group.count === 1)
+          .map((group) => group.value)
+          .sort((a, b) => b - a);
+        return [2, pair, ...kickers];
+      }
+
+      return [1, ...values];
+    }
+
+    function evaluateBestHand(cards) {
+      let best = null;
+      for (let a = 0; a < cards.length - 4; a += 1) {
+        for (let b = a + 1; b < cards.length - 3; b += 1) {
+          for (let c = b + 1; c < cards.length - 2; c += 1) {
+            for (let d = c + 1; d < cards.length - 1; d += 1) {
+              for (let e = d + 1; e < cards.length; e += 1) {
+                const rank = evaluateFiveCards([cards[a], cards[b], cards[c], cards[d], cards[e]]);
+                if (!best || compareHands(rank, best) > 0) best = rank;
+              }
+            }
+          }
+        }
+      }
+      return best;
+    }
+
+    function shuffleInPlace(cards) {
+      for (let i = cards.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      return cards;
+    }
+
+    function buildSimulationConfig(total) {
+      const heroCards = state.hero.map((id) => CARD_BY_ID.get(id));
+      const boardCards = state.board.map((id) => CARD_BY_ID.get(id));
+      const opponentHands = state.opponents.map((cards) =>
+        state.advancedEnabled && cards.length === 2
+          ? cards.map((id) => CARD_BY_ID.get(id))
+          : null
+      );
+
+      const knownIds = new Set([
+        ...state.hero,
+        ...state.board,
+        ...(state.advancedEnabled ? state.opponents.flat() : [])
+      ]);
+      const baseDeck = DECK.filter((card) => !knownIds.has(card.id));
+      return {
+        total,
+        heroCards,
+        boardCards,
+        opponentHands,
+        baseDeck,
+        boardMissing: 5 - boardCards.length,
+        unknownOpponentCount: opponentHands.filter((hand) => !hand).length
+      };
+    }
+
+    function simulateOnce(config) {
+      const drawPile = shuffleInPlace(config.baseDeck.slice());
+      let drawIndex = 0;
+      const board = config.boardCards.slice();
+
+      while (board.length < 5) {
+        board.push(drawPile[drawIndex]);
+        drawIndex += 1;
+      }
+
+      const players = [config.heroCards];
+      config.opponentHands.forEach((knownHand) => {
+        if (knownHand) {
+          players.push(knownHand);
+        } else {
+          players.push([drawPile[drawIndex], drawPile[drawIndex + 1]]);
+          drawIndex += 2;
+        }
+      });
+
+      const ranks = players.map((hand) => evaluateBestHand([...hand, ...board]));
+      const heroRank = ranks[0];
+      const bestRank = ranks.reduce((best, rank) => (compareHands(rank, best) > 0 ? rank : best), ranks[0]);
+      const heroVsBest = compareHands(heroRank, bestRank);
+
+      if (heroVsBest < 0) return "lose";
+
+      const bestCount = ranks.filter((rank) => compareHands(rank, bestRank) === 0).length;
+      return bestCount === 1 ? "win" : "tie";
+    }
+
+    function runDeterministicRiver(config) {
+      const result = simulateOnce(config);
+      return {
+        win: result === "win" ? config.total : 0,
+        tie: result === "tie" ? config.total : 0,
+        lose: result === "lose" ? config.total : 0
+      };
+    }
+
+    function formatPercent(value) {
+      return `${(value * 100).toFixed(2)}%`;
+    }
+
+    function displayResults(counts, total) {
+      const winRate = counts.win / total;
+      const tieRate = counts.tie / total;
+      const loseRate = counts.lose / total;
+      const stage = getStage(state.board.length);
+      const winTimes = Math.round(winRate * 100);
+
+      dom.resultPanel.classList.add("visible");
+      dom.winNumber.textContent = formatPercent(winRate);
+      dom.winPercent.textContent = formatPercent(winRate);
+      dom.tiePercent.textContent = formatPercent(tieRate);
+      dom.losePercent.textContent = formatPercent(loseRate);
+      dom.winBar.style.width = formatPercent(winRate);
+      dom.tieBar.style.width = formatPercent(tieRate);
+      dom.loseBar.style.width = formatPercent(loseRate);
+      dom.stageText.textContent = stage;
+      dom.simulationText.textContent = `模拟次数：${total.toLocaleString("zh-CN")} 次`;
+      dom.detailText.textContent = `胜率 ${formatPercent(winRate)}，平局 ${formatPercent(tieRate)}，失败 ${formatPercent(loseRate)}。`;
+      dom.explainText.textContent = `在当前${state.playerCount}人局中，如果这个局面重复100次，你大约能赢${winTimes}次。`;
+    }
+
+    function finishCalculation() {
+      state.isComputing = false;
+      dom.calculateButton.disabled = false;
+      dom.calculateButton.textContent = "计算胜率";
+      renderDeck();
+    }
+
+    function runSimulation() {
+      const error = validateInput();
+      if (error) {
+        setMessage(error);
+        return;
+      }
+
+      state.runId += 1;
+      const runId = state.runId;
+      const total = getSimulationCount();
+      const config = buildSimulationConfig(total);
+      const counts = { win: 0, tie: 0, lose: 0 };
+      let completed = 0;
+
+      state.isComputing = true;
+      dom.calculateButton.disabled = true;
+      dom.calculateButton.textContent = "计算中...";
+      dom.resultPanel.classList.remove("visible");
+      setMessage("计算中，请稍候...", "info");
+      renderDeck();
+
+      // 河牌且所有对手手牌已知时，局面已完全确定，不需要随机抽牌。
+      if (config.boardMissing === 0 && config.unknownOpponentCount === 0) {
+        const fixedCounts = runDeterministicRiver(config);
+        displayResults(fixedCounts, total);
+        setMessage("计算完成。", "info");
+        finishCalculation();
+        return;
+      }
+
+      function processBatch() {
+        if (runId !== state.runId) return;
+        const batchSize = total >= 100000 ? 600 : 900;
+        const end = Math.min(total, completed + batchSize);
+
+        for (; completed < end; completed += 1) {
+          const result = simulateOnce(config);
+          counts[result] += 1;
+        }
+
+        const progress = Math.round((completed / total) * 100);
+        setMessage(`计算中，请稍候... ${progress}%`, "info");
+
+        if (completed < total) {
+          setTimeout(processBatch, 0);
+        } else {
+          displayResults(counts, total);
+          setMessage("计算完成。", "info");
+          finishCalculation();
+        }
+      }
+
+      setTimeout(processBatch, 0);
+    }
+
+    function bindEvents() {
+      document.querySelectorAll("[data-target]").forEach((button) => {
+        button.addEventListener("click", () => setCurrentTarget(button.dataset.target));
+      });
+
+      dom.advancedToggle.addEventListener("click", () => {
+        if (state.isComputing) return;
+        state.advancedEnabled = !state.advancedEnabled;
+        if (!state.advancedEnabled) {
+          state.opponents = Array.from({ length: state.playerCount - 1 }, () => []);
+          if (state.currentTarget.startsWith("opponent-")) state.currentTarget = "hero";
+        }
+        setMessage(state.advancedEnabled ? "已开启高级模式，可填写对手手牌。" : "已关闭高级模式，对手按随机未知手牌处理。", "info");
+        render();
+      });
+
+      dom.clearButton.addEventListener("click", clearSelections);
+      dom.calculateButton.addEventListener("click", runSimulation);
+    }
+
+    function initApp() {
+      dom = {
+        playerButtons: document.getElementById("playerButtons"),
+        heroSlots: document.getElementById("heroSlots"),
+        boardSlots: document.getElementById("boardSlots"),
+        deckGrid: document.getElementById("deckGrid"),
+        currentTargetText: document.getElementById("currentTargetText"),
+        advancedToggle: document.getElementById("advancedToggle"),
+        opponentsArea: document.getElementById("opponentsArea"),
+        clearButton: document.getElementById("clearButton"),
+        calculateButton: document.getElementById("calculateButton"),
+        message: document.getElementById("message"),
+        resultPanel: document.getElementById("resultPanel"),
+        winNumber: document.getElementById("winNumber"),
+        stageText: document.getElementById("stageText"),
+        simulationText: document.getElementById("simulationText"),
+        detailText: document.getElementById("detailText"),
+        winBar: document.getElementById("winBar"),
+        tieBar: document.getElementById("tieBar"),
+        loseBar: document.getElementById("loseBar"),
+        winPercent: document.getElementById("winPercent"),
+        tiePercent: document.getElementById("tiePercent"),
+        losePercent: document.getElementById("losePercent"),
+        explainText: document.getElementById("explainText")
+      };
+
+      bindEvents();
+      render();
+    }
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("DOMContentLoaded", initApp);
+    }
+  </script>
+</body>
+</html>
