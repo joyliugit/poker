@@ -375,6 +375,37 @@
       font-size: 13px;
     }
 
+    .odds-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label {
+      font-weight: 750;
+    }
+
+    .number-input {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 9px 12px;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+    }
+
+    .number-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(8, 127, 140, 0.14);
+    }
+
     .actions {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
@@ -512,6 +543,32 @@
       color: #174a4f;
       line-height: 1.65;
       font-weight: 650;
+    }
+
+    .advice-panel {
+      margin: 14px 0 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #f8fafc;
+      line-height: 1.65;
+    }
+
+    .advice-panel.good {
+      border-color: #b7e1ce;
+      background: #eef9f3;
+      color: #115c3d;
+    }
+
+    .advice-panel.bad {
+      border-color: #f0c5c5;
+      background: #fff5f5;
+      color: #9d1f1f;
+    }
+
+    .advice-title {
+      font-weight: 850;
+      margin-bottom: 4px;
     }
 
     @media (min-width: 760px) {
@@ -665,10 +722,29 @@
         </div>
       </section>
 
+      <section class="panel" aria-labelledby="oddsTitle">
+        <div class="panel-title">
+          <div>
+            <h2 id="oddsTitle">6. 跟注判断</h2>
+            <div class="hint">可选填写。按底池赔率判断当前胜率是否值得跟注。</div>
+          </div>
+        </div>
+        <div class="odds-grid">
+          <div class="field">
+            <label for="potSizeInput">当前底池金额</label>
+            <input id="potSizeInput" class="number-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="例如 100">
+          </div>
+          <div class="field">
+            <label for="callAmountInput">需要跟注金额</label>
+            <input id="callAmountInput" class="number-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="例如 20">
+          </div>
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="actionTitle">
         <div class="actions">
           <div>
-            <h2 id="actionTitle">6. 开始计算</h2>
+            <h2 id="actionTitle">7. 开始计算</h2>
             <div id="message" class="message" role="status" aria-live="polite"></div>
           </div>
           <button id="calculateButton" class="calculate-button" type="button">计算胜率</button>
@@ -676,7 +752,7 @@
       </section>
 
       <section id="resultPanel" class="result-panel" aria-labelledby="resultTitle">
-        <h2 id="resultTitle">7. 结果展示</h2>
+        <h2 id="resultTitle">8. 结果展示</h2>
         <div class="result-head">
           <div>
             <div class="hint">我的胜率</div>
@@ -686,6 +762,7 @@
             <span id="stageText" class="stage-pill">翻牌前</span>
             <span id="simulationText">模拟次数：0 次</span>
             <span id="detailText">胜率 0.00%，平局 0.00%，失败 0.00%。</span>
+            <span id="equityText">有效权益 0.00%。</span>
           </div>
         </div>
         <div class="bars">
@@ -704,6 +781,10 @@
             <div class="bar-track"><div id="loseBar" class="bar-fill lose"></div></div>
             <span id="losePercent">0.00%</span>
           </div>
+        </div>
+        <div id="advicePanel" class="advice-panel">
+          <div id="adviceTitle" class="advice-title">跟注判断：未填写底池金额</div>
+          <div id="adviceText">填写当前底池和需要跟注金额后，可以判断是否值得跟注。</div>
         </div>
         <p id="explainText" class="explain">请选择手牌并点击计算。</p>
       </section>
@@ -1045,6 +1126,26 @@
       return selected ? Number(selected.value) : 20000;
     }
 
+    function readNumberInput(input) {
+      const text = input.value.trim();
+      if (!text) return null;
+      const value = Number(text);
+      return Number.isFinite(value) ? value : NaN;
+    }
+
+    function getPotOddsInput() {
+      const pot = readNumberInput(dom.potSizeInput);
+      const call = readNumberInput(dom.callAmountInput);
+      const enabled = pot !== null || call !== null;
+      if (!enabled) return { enabled: false };
+      return {
+        enabled: true,
+        pot,
+        call,
+        requiredEquity: call > 0 ? call / (pot + call) : 0
+      };
+    }
+
     function validateInput() {
       if (state.hero.length !== 2) {
         return "请先选择2张我的手牌。";
@@ -1068,6 +1169,19 @@
       ];
       if (new Set(cards).size !== cards.length) {
         return "同一张牌不能重复选择。";
+      }
+
+      const potOdds = getPotOddsInput();
+      if (potOdds.enabled) {
+        if (potOdds.pot === null || potOdds.call === null) {
+          return "如果要判断是否值得跟注，请同时填写当前底池金额和需要跟注金额。";
+        }
+        if (Number.isNaN(potOdds.pot) || Number.isNaN(potOdds.call)) {
+          return "底池金额和跟注金额必须是有效数字。";
+        }
+        if (potOdds.pot < 0 || potOdds.call < 0) {
+          return "底池金额和跟注金额不能小于0。";
+        }
       }
       return "";
     }
@@ -1216,7 +1330,7 @@
       };
     }
 
-    function simulateOnce(config) {
+    function simulateDetailedOnce(config) {
       const drawPile = shuffleInPlace(config.baseDeck.slice());
       let drawIndex = 0;
       const board = config.boardCards.slice();
@@ -1241,18 +1355,28 @@
       const bestRank = ranks.reduce((best, rank) => (compareHands(rank, best) > 0 ? rank : best), ranks[0]);
       const heroVsBest = compareHands(heroRank, bestRank);
 
-      if (heroVsBest < 0) return "lose";
+      if (heroVsBest < 0) {
+        return { outcome: "lose", equityShare: 0 };
+      }
 
       const bestCount = ranks.filter((rank) => compareHands(rank, bestRank) === 0).length;
-      return bestCount === 1 ? "win" : "tie";
+      return {
+        outcome: bestCount === 1 ? "win" : "tie",
+        equityShare: 1 / bestCount
+      };
+    }
+
+    function simulateOnce(config) {
+      return simulateDetailedOnce(config).outcome;
     }
 
     function runDeterministicRiver(config) {
-      const result = simulateOnce(config);
+      const result = simulateDetailedOnce(config);
       return {
-        win: result === "win" ? config.total : 0,
-        tie: result === "tie" ? config.total : 0,
-        lose: result === "lose" ? config.total : 0
+        win: result.outcome === "win" ? config.total : 0,
+        tie: result.outcome === "tie" ? config.total : 0,
+        lose: result.outcome === "lose" ? config.total : 0,
+        equity: result.equityShare * config.total
       };
     }
 
@@ -1260,10 +1384,34 @@
       return `${(value * 100).toFixed(2)}%`;
     }
 
+    function displayPotOddsAdvice(equityRate) {
+      const potOdds = getPotOddsInput();
+      dom.advicePanel.className = "advice-panel";
+
+      if (!potOdds.enabled) {
+        dom.adviceTitle.textContent = "跟注判断：未填写底池金额";
+        dom.adviceText.textContent = "填写当前底池和需要跟注金额后，可以判断是否值得跟注。";
+        return;
+      }
+
+      if (potOdds.call === 0) {
+        dom.advicePanel.classList.add("good");
+        dom.adviceTitle.textContent = "跟注判断：值得继续";
+        dom.adviceText.textContent = `无需额外投入，需要胜率为 ${formatPercent(0)}；当前有效权益约 ${formatPercent(equityRate)}。`;
+        return;
+      }
+
+      const isWorthCalling = equityRate + 0.0000001 >= potOdds.requiredEquity;
+      dom.advicePanel.classList.add(isWorthCalling ? "good" : "bad");
+      dom.adviceTitle.textContent = isWorthCalling ? "跟注判断：值得跟注" : "跟注判断：不建议跟注";
+      dom.adviceText.textContent = `底池赔率要求至少 ${formatPercent(potOdds.requiredEquity)} 的有效权益；当前有效权益约 ${formatPercent(equityRate)}。${isWorthCalling ? "从长期数学期望看，这次跟注是划算的。" : "从长期数学期望看，这次跟注不划算。"}`;
+    }
+
     function displayResults(counts, total) {
       const winRate = counts.win / total;
       const tieRate = counts.tie / total;
       const loseRate = counts.lose / total;
+      const equityRate = (counts.equity || 0) / total;
       const stage = getStage(state.board.length);
       const winTimes = Math.round(winRate * 100);
 
@@ -1278,6 +1426,8 @@
       dom.stageText.textContent = stage;
       dom.simulationText.textContent = `模拟次数：${total.toLocaleString("zh-CN")} 次`;
       dom.detailText.textContent = `胜率 ${formatPercent(winRate)}，平局 ${formatPercent(tieRate)}，失败 ${formatPercent(loseRate)}。`;
+      dom.equityText.textContent = `有效权益 ${formatPercent(equityRate)}。`;
+      displayPotOddsAdvice(equityRate);
       dom.explainText.textContent = `在当前${state.playerCount}人局中，如果这个局面重复100次，你大约能赢${winTimes}次。`;
     }
 
@@ -1299,7 +1449,7 @@
       const runId = state.runId;
       const total = getSimulationCount();
       const config = buildSimulationConfig(total);
-      const counts = { win: 0, tie: 0, lose: 0 };
+      const counts = { win: 0, tie: 0, lose: 0, equity: 0 };
       let completed = 0;
 
       state.isComputing = true;
@@ -1325,8 +1475,9 @@
         const end = Math.min(total, completed + batchSize);
 
         for (; completed < end; completed += 1) {
-          const result = simulateOnce(config);
-          counts[result] += 1;
+          const result = simulateDetailedOnce(config);
+          counts[result.outcome] += 1;
+          counts.equity += result.equityShare;
         }
 
         const progress = Math.round((completed / total) * 100);
@@ -1381,6 +1532,8 @@
         currentTargetText: document.getElementById("currentTargetText"),
         advancedToggle: document.getElementById("advancedToggle"),
         opponentsArea: document.getElementById("opponentsArea"),
+        potSizeInput: document.getElementById("potSizeInput"),
+        callAmountInput: document.getElementById("callAmountInput"),
         clearButton: document.getElementById("clearButton"),
         closeDeckButton: document.getElementById("closeDeckButton"),
         calculateButton: document.getElementById("calculateButton"),
@@ -1390,12 +1543,16 @@
         stageText: document.getElementById("stageText"),
         simulationText: document.getElementById("simulationText"),
         detailText: document.getElementById("detailText"),
+        equityText: document.getElementById("equityText"),
         winBar: document.getElementById("winBar"),
         tieBar: document.getElementById("tieBar"),
         loseBar: document.getElementById("loseBar"),
         winPercent: document.getElementById("winPercent"),
         tiePercent: document.getElementById("tiePercent"),
         losePercent: document.getElementById("losePercent"),
+        advicePanel: document.getElementById("advicePanel"),
+        adviceTitle: document.getElementById("adviceTitle"),
+        adviceText: document.getElementById("adviceText"),
         explainText: document.getElementById("explainText")
       };
 
